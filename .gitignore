@@ -5,3 +5,5 @@ ffmpeg-*/
 *.tar.xz
 ffmpeg
 keypoints.csv
+handedness_analysis.csv
+*.html
