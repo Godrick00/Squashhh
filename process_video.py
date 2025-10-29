@@ -3,6 +3,7 @@ from ultralytics import YOLO
 import yt_dlp
 import os
 import argparse
+import csv
 
 def main(video_url):
     # --- 1. Download Video ---
@@ -24,17 +25,35 @@ def main(video_url):
     height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
     fps = int(cap.get(cv2.CAP_PROP_FPS))
 
-    fourcc = cv2.VideoWriter_fourcc(*'XVID')
-    out = cv2.VideoWriter('output.avi', fourcc, fps, (width, height))
+    fourcc = cv2.VideoWriter_fourcc(*'mp4v') # Changed codec for .mp4
+    out = cv2.VideoWriter('animation.mp4', fourcc, fps, (width, height))
 
-    while cap.isOpened():
-        ret, frame = cap.read()
-        if not ret:
-            break
+    # Open CSV file for writing keypoints
+    with open('keypoints.csv', 'w', newline='') as csvfile:
+        csv_writer = csv.writer(csvfile)
+        # Write header
+        csv_writer.writerow(['frame_id', 'person_id', 'keypoint_id', 'x', 'y', 'confidence'])
 
-        results = model(frame)
-        annotated_frame = results[0].plot()
-        out.write(annotated_frame)
+        frame_id = 0
+        while cap.isOpened():
+            ret, frame = cap.read()
+            if not ret:
+                break
+
+            # Run pose estimation
+            results = model(frame)
+
+            # Draw annotations
+            annotated_frame = results[0].plot()
+            out.write(annotated_frame)
+
+            # Extract and write keypoints to CSV
+            keypoints = results[0].keypoints.cpu().numpy()
+            for person_id, person_keypoints in enumerate(keypoints.data):
+                for keypoint_id, (x, y, conf) in enumerate(person_keypoints):
+                    csv_writer.writerow([frame_id, person_id, keypoint_id, x, y, conf])
+
+            frame_id += 1
 
     cap.release()
     out.release()
