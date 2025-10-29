@@ -1,0 +1,6 @@
+*.pt
+*.avi
+*.mp4
+ffmpeg-*/
+*.tar.xz
+ffmpeg
