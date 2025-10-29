@@ -5,6 +5,7 @@ import os
 import argparse
 import csv
 import numpy as np
+import torch
 
 # YOLOv8 keypoint mapping
 SKELETON = [
@@ -51,29 +52,30 @@ def main(video_url):
             if not ret:
                 break
 
-            results = model(frame)
+            results = model.track(frame, persist=True)
 
-            # Create a black background
             black_frame = np.zeros((height, width, 3), dtype=np.uint8)
 
-            keypoints_data = results[0].keypoints.cpu().numpy()
+            if results[0].boxes.id is not None:
+                tracked_ids = results[0].boxes.id.int().cpu().tolist()
+                keypoints_data = results[0].keypoints.cpu().numpy()
 
-            for person_id, person_keypoints in enumerate(keypoints_data.data):
-                # Draw skeleton
-                for p1_idx, p2_idx in SKELETON:
-                    if p1_idx < len(person_keypoints) and p2_idx < len(person_keypoints):
-                        x1, y1, conf1 = person_keypoints[p1_idx]
-                        x2, y2, conf2 = person_keypoints[p2_idx]
-                        if conf1 > 0.5 and conf2 > 0.5: # Draw only if confident
-                            cv2.line(black_frame, (int(x1), int(y1)), (int(x2), int(y2)), SKELETON_COLOR, 2)
+                for i, person_id in enumerate(tracked_ids):
+                    person_keypoints = keypoints_data.data[i]
 
-                # Draw keypoints
-                for keypoint_id, (x, y, conf) in enumerate(person_keypoints):
-                    if conf > 0.5: # Draw only if confident
-                        cv2.circle(black_frame, (int(x), int(y)), 5, KEYPOINT_COLOR, -1)
+                    # Draw skeleton
+                    for p1_idx, p2_idx in SKELETON:
+                        if p1_idx < len(person_keypoints) and p2_idx < len(person_keypoints):
+                            x1, y1, conf1 = person_keypoints[p1_idx]
+                            x2, y2, conf2 = person_keypoints[p2_idx]
+                            if conf1 > 0.5 and conf2 > 0.5:
+                                cv2.line(black_frame, (int(x1), int(y1)), (int(x2), int(y2)), SKELETON_COLOR, 2)
 
-                    # Write to CSV
-                    csv_writer.writerow([frame_id, person_id, keypoint_id, x, y, conf])
+                    # Draw keypoints and write to CSV
+                    for keypoint_id, (x, y, conf) in enumerate(person_keypoints):
+                        if conf > 0.5:
+                            cv2.circle(black_frame, (int(x), int(y)), 5, KEYPOINT_COLOR, -1)
+                        csv_writer.writerow([frame_id, person_id, keypoint_id, x, y, conf])
 
             out.write(black_frame)
             frame_id += 1
@@ -84,6 +86,10 @@ def main(video_url):
 
     if os.path.exists(video_path):
         os.remove(video_path)
+    if os.path.exists('inspect_tracker.py'):
+        os.remove('inspect_tracker.py')
+    if os.path.exists('ffmpeg'):
+        os.remove('ffmpeg')
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Process a YouTube video to detect player movements.")

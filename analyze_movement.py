@@ -45,6 +45,13 @@ def analyze_hand_movement(keypoints_csv):
     wrists_df = pd.concat([left_wrist_df, right_wrist_df])
     wrists_df['hand'] = wrists_df['keypoint_id'].apply(lambda x: 'Left' if x == 9 else 'Right')
 
+    # Determine axis ranges for a fixed scale
+    margin = 50  # Add a margin to the plot
+    x_min = df['x'].min() - margin
+    x_max = df['x'].max() + margin
+    y_min = df['y'].min() - margin
+    y_max = df['y'].max() + margin
+
     fig = px.scatter(
         wrists_df,
         x='x',
@@ -55,14 +62,17 @@ def analyze_hand_movement(keypoints_csv):
         size='confidence',
         hover_name='person_id',
         title='Hand Movement Over Time',
-        labels={'x': 'X Coordinate', 'y': 'Y Coordinate', 'frame_id': 'Frame'}
+        labels={'x': 'X Coordinate', 'y': 'Y Coordinate', 'frame_id': 'Frame'},
+        range_x=[x_min, x_max],
+        range_y=[y_min, y_max]
     )
 
-    # Improve layout
+    # Improve layout and invert y-axis
     fig.update_layout(
         xaxis_title="X Coordinate",
         yaxis_title="Y Coordinate",
-        legend_title="Hand"
+        legend_title="Hand",
+        yaxis=dict(autorange="reversed") # Invert y-axis
     )
 
     # Save to HTML
